@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <dimen name="size_text_action_footer">18sp</dimen>
+  <dimen name="text_size_title">18sp</dimen>
+  <dimen name="size_text_browser">22sp</dimen>
+  <dimen name="size_text_info_file">16sp</dimen>
+</resources>
