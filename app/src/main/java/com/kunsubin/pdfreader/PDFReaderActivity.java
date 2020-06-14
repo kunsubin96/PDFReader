@@ -2,29 +2,29 @@ package com.kunsubin.pdfreader;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.pdf.PdfRenderer;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.view.View;
-import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
 import androidx.annotation.WorkerThread;
 import androidx.appcompat.app.AppCompatActivity;
+import com.kunsubin.pdfreader.photoview.PhotoView;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 public class PDFReaderActivity extends AppCompatActivity {
     
-    private static final String FILENAME = "sample.pdf";
     private static final String TAG = "PDFReaderActivity";
     private final Executor mExecutor= Executors.newSingleThreadExecutor();;
-    private ImageView mImageViewReader;
+    private PhotoView mPhotoViewReader;
     private TextView mTextViewPageNumber;
     private TextView mTextViewTitle;
     
@@ -32,12 +32,24 @@ public class PDFReaderActivity extends AppCompatActivity {
     private PdfRenderer mPdfRenderer;
     private PdfRenderer.Page mCurrentPage;
     
+    private int mIndex=0;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_pdf_reader);
+        
+        if(savedInstanceState!=null){
+            mIndex=savedInstanceState.getInt("current_page");
+        }
+        
         init();
+    }
+    
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putInt("current_page",mCurrentPage.getIndex());
     }
     
     @Override
@@ -53,12 +65,12 @@ public class PDFReaderActivity extends AppCompatActivity {
     }
     
     private void init() {
-        mImageViewReader = findViewById(R.id.image);
+        mPhotoViewReader = findViewById(R.id.image);
         mTextViewPageNumber=findViewById(R.id.text_page_number);
         mTextViewTitle=findViewById(R.id.title);
     
     
-        mImageViewReader.setOnTouchListener(new OnSwipeTouchListener(this){
+        /*mImageViewReader.setOnTouchListener(new OnSwipeTouchListener(this){
             public void onSwipeTop() {
                 showNext();
             }
@@ -71,7 +83,7 @@ public class PDFReaderActivity extends AppCompatActivity {
             public void onSwipeBottom() {
                 showPrevious();
             }
-        });
+        });*/
         
         //get intent
         Intent intent = getIntent();
@@ -88,7 +100,7 @@ public class PDFReaderActivity extends AppCompatActivity {
         mExecutor.execute(() -> {
             try {
                 openPdfRenderer(file);
-                showPage(0);
+                showPage(mIndex);
             } catch (IOException e) {
                 Log.e(TAG, "Failed to open Pdf", e);
                 runOnUiThread(() -> {
@@ -114,20 +126,6 @@ public class PDFReaderActivity extends AppCompatActivity {
     
     @WorkerThread
     private void openPdfRenderer(File file) throws IOException {
-       // final File file = new File(getApplication().getCacheDir(), FILENAME);
-        if (!file.exists()) {
-            // Since PdfRenderer cannot handle the compressed asset file directly, we copy it into
-            // the cache directory.
-            final InputStream asset = getApplication().getAssets().open(FILENAME);
-            final FileOutputStream output = new FileOutputStream(file);
-            final byte[] buffer = new byte[1024];
-            int size;
-            while ((size = asset.read(buffer)) != -1) {
-                output.write(buffer, 0, size);
-            }
-            asset.close();
-            output.close();
-        }
         mFileDescriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY);
         if (mFileDescriptor != null) {
             mPdfRenderer = new PdfRenderer(mFileDescriptor);
@@ -156,14 +154,26 @@ public class PDFReaderActivity extends AppCompatActivity {
         // Use `openPage` to open a specific page in PDF.
         mCurrentPage = mPdfRenderer.openPage(index);
         
-        final Bitmap bitmap = Bitmap.createBitmap(mCurrentPage.getWidth(), mCurrentPage.getHeight(),
-                  Bitmap.Config.ARGB_8888);
+        /*final Bitmap bitmap = Bitmap.createBitmap(mCurrentPage.getWidth(), mCurrentPage.getHeight(),
+                  Bitmap.Config.ARGB_8888);*/
+        Bitmap bitmap = Bitmap.createBitmap(
+                  getResources().getDisplayMetrics().densityDpi * mCurrentPage.getWidth() / 72,
+                  getResources().getDisplayMetrics().densityDpi * mCurrentPage.getHeight() / 72,
+                  Bitmap.Config.ARGB_8888
+        );
+        // Paint bitmap before rendering
+        Canvas canvas = new Canvas(bitmap);
+        canvas.drawColor(Color.WHITE);
+        canvas.drawBitmap(bitmap, 0, 0, null);
         
         mCurrentPage.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
         
         //show ui
         runOnUiThread(() -> {
-            mImageViewReader.setImageBitmap(bitmap);
+            //mPhotoViewReader.setImageBitmap(bitmap);
+            
+            AnimationUtils.imageViewAnimatedChange(this,mPhotoViewReader,bitmap);
+            
             final int count = mPdfRenderer.getPageCount();
             mTextViewPageNumber.setText((index+1)+"/"+count);
         });
